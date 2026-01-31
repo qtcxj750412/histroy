@@ -290,11 +290,27 @@
     <script>
         // 全局变量
         let questions = [];
+        let currentQuizQuestions = [];
         let currentQuestionIndex = 0;
         let userAnswers = [];
         let startTime = 0;
         let timerInterval = null;
         let quizHistory = [];
+
+        // 设置导航
+        function setupNavigation() {
+            const navButtons = document.querySelectorAll('.nav-btn');
+            navButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    const pageId = this.id.replace('nav-', '');
+                    showPage(pageId);
+
+                    // 更新导航按钮状态
+                    navButtons.forEach(btn => btn.classList.remove('active', 'bg-blue-600'));
+                    this.classList.add('active', 'bg-blue-600');
+                });
+            });
+        }
 
         // 页面加载完成后执行
         document.addEventListener('DOMContentLoaded', function() {
@@ -348,20 +364,7 @@
                 });
         }
 
-        // 设置导航
-        function setupNavigation() {
-            const navButtons = document.querySelectorAll('.nav-btn');
-            navButtons.forEach(button => {
-                button.addEventListener('click', function() {
-                    const pageId = this.id.replace('nav-', '');
-                    showPage(pageId);
 
-                    // 更新导航按钮状态
-                    navButtons.forEach(btn => btn.classList.remove('active', 'bg-blue-600'));
-                    this.classList.add('active', 'bg-blue-600');
-                });
-            });
-        }
 
         // 显示指定页面
         function showPage(pageId) {
@@ -506,6 +509,11 @@
             userAnswers = [];
             startTime = Date.now();
 
+            // 随机选取30道试题
+            const quizLength = 30;
+            const shuffledQuestions = [...questions].sort(() => Math.random() - 0.5);
+            currentQuizQuestions = shuffledQuestions.slice(0, quizLength);
+
             // 隐藏开始按钮，显示第一题
             document.getElementById('quiz-content').innerHTML = renderCurrentQuestion();
 
@@ -518,12 +526,12 @@
 
         // 渲染当前试题
         function renderCurrentQuestion() {
-            if (currentQuestionIndex >= questions.length) {
+            if (currentQuestionIndex >= currentQuizQuestions.length) {
                 endQuiz();
                 return '';
             }
 
-            const question = questions[currentQuestionIndex];
+            const question = currentQuizQuestions[currentQuestionIndex];
             return `
                 <div class="mb-6">
                     <h3 class="text-lg font-semibold mb-4">${currentQuestionIndex + 1}. ${question.question}</h3>
@@ -538,13 +546,18 @@
                         `).join('')}
                     </div>
                 </div>
-                <div class="flex justify-between">
+                <div class="flex flex-col md:flex-row justify-between gap-4">
                     <button id="prev-question" class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold px-4 py-2 rounded-md transition-all-300 ${currentQuestionIndex === 0 ? 'opacity-50 cursor-not-allowed' : ''}">
                         上一题
                     </button>
-                    <button id="next-question" class="bg-primary hover:bg-blue-600 text-white font-semibold px-4 py-2 rounded-md transition-all-300">
-                        ${currentQuestionIndex === questions.length - 1 ? '提交' : '下一题'}
-                    </button>
+                    <div class="flex gap-4">
+                        <button id="submit-quiz" class="bg-danger hover:bg-red-600 text-white font-semibold px-4 py-2 rounded-md transition-all-300">
+                            交卷
+                        </button>
+                        <button id="next-question" class="bg-primary hover:bg-blue-600 text-white font-semibold px-4 py-2 rounded-md transition-all-300">
+                            ${currentQuestionIndex === currentQuizQuestions.length - 1 ? '提交' : '下一题'}
+                        </button>
+                    </div>
                 </div>
             `;
         }
@@ -565,7 +578,7 @@
 
         // 更新进度
         function updateProgress() {
-            document.getElementById('quiz-progress').textContent = `${currentQuestionIndex + 1}/${questions.length}`;
+            document.getElementById('quiz-progress').textContent = `${currentQuestionIndex + 1}/${currentQuizQuestions.length}`;
         }
 
         // 结束测验
@@ -575,7 +588,7 @@
 
             // 计算得分
             const score = calculateScore();
-            const correctRate = Math.round((score.correct / questions.length) * 100);
+            const correctRate = Math.round((score.correct / currentQuizQuestions.length) * 100);
             const elapsed = Math.floor((Date.now() - startTime) / 1000);
             const minutes = Math.floor(elapsed / 60).toString().padStart(2, '0');
             const seconds = (elapsed % 60).toString().padStart(2, '0');
@@ -591,7 +604,7 @@
 
             // 生成答题状态
             const answerStatus = document.getElementById('answer-status');
-            answerStatus.innerHTML = questions.map((question, index) => {
+            answerStatus.innerHTML = currentQuizQuestions.map((question, index) => {
                 const isCorrect = userAnswers[index] === question.answer;
                 return `
                     <div class="w-8 h-8 rounded-full flex items-center justify-center ${isCorrect ? 'bg-success text-white' : 'bg-danger text-white'}">
@@ -610,7 +623,7 @@
             let correct = 0;
             let total = 0;
 
-            questions.forEach((question, index) => {
+            currentQuizQuestions.forEach((question, index) => {
                 if (userAnswers[index] === question.answer) {
                     correct++;
                 }
@@ -684,24 +697,84 @@
 
         // 查看答案解析
         function reviewAnswers() {
-            // 这里可以实现查看详细解析的功能
-            alert('查看答案解析功能正在开发中...');
-        }
+            // 检查试题数据是否加载完成
+            if (currentQuizQuestions.length === 0) {
+                alert('试题数据正在加载中，请稍后再试');
+                return;
+            }
 
-        // 设置导航
-        function setupNavigation() {
-            const navButtons = document.querySelectorAll('.nav-btn');
-            navButtons.forEach(button => {
-                button.addEventListener('click', function() {
-                    const pageId = this.id.replace('nav-', '');
-                    showPage(pageId);
+            // 创建解析页面内容
+            let explanationContent = `
+                <div class="space-y-6">
+                    <h3 class="text-xl font-bold mb-4">答案解析</h3>
+                    <div class="overflow-y-auto max-h-[70vh] space-y-8">
+            `;
 
-                    // 更新导航按钮状态
-                    navButtons.forEach(btn => btn.classList.remove('active', 'bg-blue-600'));
-                    this.classList.add('active', 'bg-blue-600');
-                });
+            // 遍历所有试题，生成解析内容
+            currentQuizQuestions.forEach((question, index) => {
+                const isCorrect = userAnswers[index] === question.answer;
+                const userAnswer = userAnswers[index] || '未作答';
+                
+                explanationContent += `
+                    <div class="border border-gray-200 rounded-lg p-4">
+                        <div class="flex justify-between items-start mb-3">
+                            <h4 class="text-lg font-semibold">${index + 1}. ${question.question}</h4>
+                            <span class="px-2 py-1 rounded-full text-xs font-medium ${isCorrect ? 'bg-success text-white' : 'bg-danger text-white'}">
+                                ${isCorrect ? '正确' : '错误'}
+                            </span>
+                        </div>
+                        <div class="mb-3">
+                            <p class="font-medium mb-2">选项：</p>
+                            <ul class="list-disc list-inside space-y-1">
+                                ${question.options.map((option, optIndex) => `
+                                    <li class="${option === question.answer ? 'text-success font-medium' : option === userAnswer ? 'text-danger font-medium' : ''}">
+                                        ${option}
+                                    </li>
+                                `).join('')}
+                            </ul>
+                        </div>
+                        <div class="mb-3">
+                            <p class="font-medium mb-1">你的答案：</p>
+                            <p class="${isCorrect ? 'text-success' : 'text-danger'}">${userAnswer}</p>
+                        </div>
+                        <div class="mb-3">
+                            <p class="font-medium mb-1">正确答案：</p>
+                            <p class="text-success">${question.answer}</p>
+                        </div>
+                        <div>
+                            <p class="font-medium mb-1">解析：</p>
+                            <p class="text-gray-600">${question.explanation}</p>
+                        </div>
+                        <div class="mt-3 text-sm text-gray-500">
+                            <p>知识点：${question.knowledge_point}</p>
+                            <p>难度：${getDifficultyText(question.difficulty)}</p>
+                        </div>
+                    </div>
+                `;
+            });
+
+            explanationContent += `
+                    </div>
+                    <div class="mt-6 text-right">
+                        <button id="close-explanation" class="bg-primary hover:bg-blue-600 text-white font-semibold py-2 px-6 rounded-md transition-all-300">
+                            关闭
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            // 显示解析模态框
+            const modalContent = document.getElementById('modal-content');
+            modalContent.innerHTML = explanationContent;
+            document.getElementById('explanation-modal').classList.remove('hidden');
+
+            // 添加关闭按钮点击事件
+            document.getElementById('close-explanation').addEventListener('click', function() {
+                document.getElementById('explanation-modal').classList.add('hidden');
             });
         }
+
+
 
         // 事件委托 - 处理动态生成的元素事件
         document.addEventListener('click', function(e) {
@@ -735,6 +808,19 @@
                 currentQuestionIndex++;
                 document.getElementById('quiz-content').innerHTML = renderCurrentQuestion();
                 updateProgress();
+            }
+
+            // 交卷按钮点击事件
+            if (e.target.id === 'submit-quiz') {
+                // 保存当前答案
+                const selectedRadio = document.querySelector('input[name="answer"]:checked');
+                if (selectedRadio) {
+                    const selectedLabel = selectedRadio.nextElementSibling;
+                    userAnswers[currentQuestionIndex] = selectedLabel.textContent;
+                }
+
+                // 结束测验
+                endQuiz();
             }
         });
     </script>
